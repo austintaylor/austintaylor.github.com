@@ -1,0 +1,132 @@
+---
+title: Layout
+---
+
+I have been trying to learn everything I can about visual design. I am a
+programmer by trade, but I have a strong personal bent toward creating things
+that are pleasing to the eye. Over the past year and a half, I’ve tried to get
+as much experience as I can in this area, without neglecting my primary
+business, which is writing code.
+
+A couple of months ago I had the opportunity to spend some time with [John Long] [1]
+working on a new home page design for [RoleModel Software] [2]. John is a very
+talented guy, and I was eager to understand how he approaches his designs. This
+was the first opportunity I had to sit down with a real designer and observe
+how he works.
+
+  [1]: http://wiseheartdesign.com
+  [2]: http://rolemodelsoftware.com
+
+As I worked with John, there were two things that stood out to me about the way
+he approached the design. As a programmer, I find myself more comfortable to do
+work in code than anywhere else. The design projects I had done up to this
+point were all written from beginning to end in HTML, CSS, Javascript, and Ruby
+scripts to generate images. But John’s approach was very different. I’ve spent
+some time thinking about his approach, and I’ve drawn what I think are some
+interesting conclusions.
+
+The first thing he did was to try to figure out what belonged on the page. I
+had expected him to proceed pretty quickly to creating a look, or a structure
+for the page, but instead, he kept agonizing over which elements did and didn’t
+belong on the page.
+
+The next thing he did was to start up Fireworks and begin moving those elements
+around on a mostly blank canvas. I’ve always disliked laying anything out in an
+image editor because it seemed like CSS was more powerful, and also more
+realistic, but I began to understand that there was a very powerful advantage
+to beginning here.
+
+These two observations have led me to a completely different understanding of
+the concept of layout than I had before. I came to this understanding without
+having any name or description to refer to it. Since that time, I’ve heard John
+refer to it as the “content-out” approach, which I think is a good way to
+describe it, but may bear some further explanation.
+
+### Two Ways
+
+The difference between the two approaches can be seen in two different ways the
+word “layout” can be used. Before I learned the new approach, I might talk
+about “creating a layout”, by which I meant putting together a structure of
+sections and containers that would begin to express the overall look of a page,
+without the need for any real content. Now, I would use the word “layout” in a
+different sense. I would rather talk about “laying everything out”, than about
+a “layout” as a thing in itself. In a sense, the old way is the static noun
+form, and the new way is the active verb form.
+
+When I used to create layouts, I would try to imagine what set of containers I
+would need—maybe a header, a sidebar, and a main section—and then I would start
+assigning various elements of my content to the various containers. Sometimes
+one container ended up being underused, and I would have to figure out “what to
+put there”, while another one would be filled to overflowing.
+
+But the way John worked, he began by discovering what the content would be, and
+then by spreading it all out in Fireworks like so many puzzle pieces. He kept
+moving the different bits around until the arrangement started making sense.
+The design was made from content rather than containers.
+
+### Space
+
+One of the really important things I’ve learned about visual design is to
+appreciate empty space. Space makes a design feel clean and crisp, like when
+you clean up your room. I’ve found it challenging to create designs that have
+this feeling of clean organization. Too often a page starts to feel cluttered,
+like a messy room, or too sparse, like an empty one.
+
+I think that this new approach to layout will make it much less of a struggle
+to use empty space effectively. When you create a layout of containers, you
+have to draw all the containers first, chopping up all the space you have into
+little boxes. When you then fill those containers, you mostly consider the
+relationship of the content to the container. The opportunities for breathing
+room in the design become limited.
+
+But when you lay everything you have out on the table and start arranging it,
+your design practically is space. You separate things with space first, and
+then with lines only if they are needed. The result is a design that feels
+cleaner, and simpler, but no less structured.
+
+### Form
+
+Another thing about the content-out approach is that the focus is on the real
+relationships between various elements on the page. The different pieces of the
+design are arranged based on what their proximity and alignment ought to be,
+rather than what it can be, or has to be, because of the layout.
+
+The benefit of this is that form of the layout corresponds to the form of the
+content. In other words, the layout will feel natural and logical, rather than
+forced. In a sense, this is the way that form follows function in the
+discipline of web design.
+
+### Redesign
+
+As I was contemplating these ideas, I happened to think about my experience
+redesigning the application pages in Courtyard. I consider that project to be
+the best design work I’ve done so far, both in terms of the end result, and
+also in terms of how effective my methods seemed to be while I was doing it. In
+retrospect, I seem to have used the content-out approach on that project
+without realizing it.
+
+I had already had to figure out what elements belonged on each page when I did
+the first design. When I decided to redo the design, all the content was
+already in place, so the only way to proceed was to take what was there and
+start rearranging it. My hope is that I will be able to apply the content-out
+approach on future projects so that I can be as effective as I was on that
+project, without out having to do the whole thing twice.
+
+### Conclusion
+
+It may be that all of this seems very basic and obvious to you. It does to me
+now, but it didn’t before. I’ve heard a number of people describe the design
+process in terms of “creating a layout”, which I consider to be the wrong
+approach. John also remarked that designers typically begin the other way
+around.
+
+I think it is also important for the people who work with or employ designers
+to understand this principle. It will fall on them to provide the content that
+the designer needs before he can begin laying things out. To demand that a
+layout be created before the content has been discovered will prevent the
+designer from doing his best work.
+
+I hope these ideas will help us to create more cohesive, beautiful designs, and
+that understanding them will help us to serve and collaborate with our
+customers more effectively.
+

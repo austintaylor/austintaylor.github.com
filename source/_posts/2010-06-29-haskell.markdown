@@ -1,0 +1,202 @@
+---
+title: Learning Haskell
+---
+
+I spent a couple of days reading [Haskell] [1] [tutorials] [1], and writing a little
+bit of [code] [3] in it. I find it to be a very attractive and exciting language.
+I put together a few of the reasons why I am interested in Haskell.
+
+  [1]: http://learnyouahaskell.com
+  [2]: http://book.realworldhaskell.org/read
+  [3]: http://gist.github.com/417389
+
+### Strong Types, and Type Inference
+
+When I used to program Java, I always hated the type system. It just felt like
+it was constantly getting in your way, and it seldom gave you anything back.
+In fact, it actively discouraged you from breaking things down into smaller
+methods and shorter statements, because every time you did, you suddenly had to
+add type declarations for everything again.
+
+When I moved to Ruby, not having to declare types felt absolutely brilliant.
+Of course, _I_ knew what the type was, because I was the programmer, after all.
+I was the master. It would be the type of whatever I assigned, duh. But from time
+to time, I wished that I had declared types on things. It would be useful for
+metaprogramming, you know. That's about all it was ever good for in Java. And
+having declared types on public library functions can't do anything to harm
+documentation efforts.
+
+In Haskell, you really seem to have the best of both worlds. You can declare types
+as much or as little as you want, and the type inference figures out the rest. In
+general, though, you always declare inputs and outputs to public functions. The
+supportive code for the high level functions can be totally undeclared, which is
+awesome, because it dramatically reduces the friction in breaking down an algorithm.
+Consider the following function.
+
+<div class="code_window">
+{% highlight haskell %}
+toEnglish :: Int -> String
+toEnglish x
+  | x < 0 = "negative " ++ toEnglish (-x)
+  | x < 20 = ones !! x
+  | mod x d == 0 && n == 0 = tens !! div x d
+  | mod x d == 0 = (toEnglish $ div x d)  ++ delim ++ orderNames !! n
+  | otherwise = (toEnglish $ div x d * d) ++ delim ++ (toEnglish $ mod x d)
+  where n = length (takeWhile (x >=) orders) - 1
+        d = orders !! n
+        delim = if n == 0 then "-" else " "
+        orders = 10:100:[1000 ^ x | x <- [1..]]
+        ones = words "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen"
+        tens = words "zero ten twenty thirty forty fifty sixty seventy eighty ninety"
+        orderNames = words "ten hundred thousand million billion trillion quadrillion quintillion sextillion septillion octillion"
+{% endhighlight %}
+</div>
+
+It takes an `Int` and returns a `String`. What else do you need to know? Between the types
+and the name, you probably don't need a lot more documentation to be able to use this
+function. But notice the `where` section at the bottom. Those are helper functions and
+constants, with no types to be found. However, the compiler does know what their types
+are, even though they aren't declared. That's what type inference is all about. The high-level
+declarations serve as a sanity check that you and the compiler are on the same page about
+what the types are.
+
+By the way, I really love the way you break down your function into little pieces and drop
+them into the `where` section. I know you can do this with procs in Ruby, or with functions
+in Javascript, but no where is it this easy to use private helper functions without poluting a
+larger namespace.
+
+For polymorphism, Haskell provides Type Classes, which are a little bit like Java Interfaces,
+only way better. You can declare multiple type classes on a type, such as declaring a function
+that takes a parameter that can behave like three different things. In practice, this is a lot
+closer to duck-typing than you might think.
+
+The part that sort of blows my mind is that Haskell can be polymorphic on both ends of a function.
+Consider. In C you might call a function like `atoi` to convert a string to an integer. Both types
+are declared in the name of the function ("AsciiToInteger", as I understand it). In Ruby you would
+call to_i on the string. The return type is declared in the name of the function, but the input type
+is inferred. If it's a string, it calls the string implementation, but if it's a different type that
+defines to_i, it calls that implementation instead.
+
+In Haskell you can be polymorphic on either end of the function. (I don't know whether you could do
+both ends at the same time to define a universal `coerce` function.) To convert a string to an integer
+you call `read`. It figures out what you want, whether an integer, float, boolean, or whatever, based
+on what you do with it once you have it. (In the terminal you would have to declare the type, like
+`read "12" :: Int`.)
+
+Taking this idea further, you can even have something like polymorphic constants. Instead of calling
+`Integer.MAX_BOUND`, you can simply call `maxBound`, and it will return the max bound for integers,
+or characters, or whatever you're talking about that can be bounded. I know this doesn't shorten the
+code a ton or anything, but it seems really cool to me that if you defined a new type that had natural
+bounds, you could define it in this way, and any method anywhere that took a bounded type could call
+your bounds. I suppose you could do this in Ruby with a convention like `object.class.max_bound` or
+something, but it isn't a part of the core language.
+
+### Algebraic Types
+
+In addition to the type inference system, the type system itself is just really, really fascinating.
+In a sense, everything is an enumeration.
+
+<div class="code_window">
+{% highlight haskell %}
+data Day = Sunday | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday
+{% endhighlight %}
+</div>
+
+This is an example of why you would want to implement the `Bounded` type class. Each of those options
+is a type constructor, so they're in the containing namespace (you just say `Sunday`, not `Day.Sunday`).
+
+Here's a more interesting example.
+
+<div class="code_window">
+{% highlight haskell %}
+data PayMethod = CreditCard CardNumber Name ExpirationDate VerificationCode
+               | Check CheckNumber
+               | Cash
+{% endhighlight %}
+</div>
+
+The first word in each option is the name of the constructor, but the following words are properties.
+They don't have names in this syntax, they just are what they are. The type is the name of the property,
+in a sense. There is another syntax where you give each property a separate name and type, but often
+the type is enough. Obviously in this case you would probably just alias all of these types to String,
+but I think it's a really interesting tradeoff.
+
+There's more you can do with the type system, but what was the most interesting to me was that seeing
+a couple of examples like this made me realize how much ORM has impovrished even our object-oriented
+type systems. You could do a lot of this same stuff in Ruby, but you wouldn't (at least in Rails) because
+of the database. It's kind of amazing to me how much programming languages end up being beholden to
+persistance mechanisms, and relational databases in particular. It seems like robust persistance (not
+serialization) would become a major topic during language design. But I understand why language-specific
+persistance mechanisms are a poor solution.
+
+### Streaming
+
+It's always a good idea to write streaming code whenever you have a function that loads a lot of data.
+In the MRI at least, memory is never released back to the operating system once it has been allocated
+to the Ruby process. This is why people write monitoring packages that restart their Ruby servers if
+they grow above a certain threshold.
+
+In Haskell, everything is lazy by default, waiting until some other code asks for its return value
+before it does any work. Monad code gets executed in order (at least IO code does), but the standard
+IO operations stream automatically, making fast, memory-conscous IO code a piece of cake.
+
+<div class="code_window">
+{% highlight haskell %}
+import Data.Char
+main = interact $ map toUpper
+{% endhighlight %}
+</div>
+
+This program reads standard in, and writes it out in all upper-case. Its memory usage is constant,
+no matter how big the input is.
+
+### Point-free Style
+
+Point-free style describes function composition where the arguments are passed through without having
+to be declared. It is an example of DRY at the syntactical level. You do this in Ruby when you use
+`Symbol#to_proc` instead of a block.
+
+<div class="code_window">
+{% highlight ruby %}
+list.map(&:strip)
+{% endhighlight %}
+</div>
+
+Rather than
+
+<div class="code_window">
+{% highlight ruby %}
+list.map {|s| s.strip }
+{% endhighlight %}
+</div>
+
+However, you can't use `Symbol#to_proc` when you need to do more than send a single method. I have seen
+people hack around this limitation in Ruby, but it isn't very well looked-on, and some people even denigrate
+`Symbol#to_proc`.
+
+In Haskell, point-free style is well-loved and well-supported. Consider the following.
+
+<div class="code_window">
+{% highlight haskell %}
+withA :: String -> String
+withA s = unlines (filter (elem 'a') (lines s))
+{% endhighlight %}
+</div>
+
+This creates a function `withA` which takes a string and returns only the lines that contain the character `'a'`.
+But this function is essentially a pipeline where the data passes through each function from right to left. (In
+an object-oriented language, it would probably read from left to right.) You can remove the parameter (and some of
+the parentheses, by rewriting the function in point-free style.
+
+<div class="code_window">
+{% highlight haskell %}
+withA :: String -> String
+withA = unlines . filter (elem 'a') . lines
+{% endhighlight %}
+</div>
+
+Once you understand how the function composition syntax works, this is way easier to read and write than the version
+with all the parentheses. To be honest, I consider this better, but still not as intuitive as an object-oriented version
+which reads in the order the steps are performed. The cool thing is that we've eliminated the variable. Note that it's
+still clear that the function takes a string from the type declaration.
+

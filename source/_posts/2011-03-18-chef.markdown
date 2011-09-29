@@ -1,0 +1,18 @@
+It seems that the main problem Chef was intended to solve is maintaining tens or hundreds of servers in production. The problems I have are a) deploying repeatedly to a single server, keeping non-gem dependencies up to date, and b) installing the application, OS, and all dependencies on new servers, which will be installed at client sites as appliances.
+
+I was hoping that because of the idempotent nature of Chef, there would be some way to serve both of these use-cases with a single process, with the possible exception of the OS install. However, Chef doesn't seem to handle this very well out of the box.
+
+Configurations I've thought about:
+
+1. The capistrano deploy could invoke chef-solo to update non-gem dependencies, but this requires us to install the application itself, ruby, bundler, and all the dependencies of chef-solo manually.
+
+2. I could write chef cookbooks to set up everything, including the application and set up a chef server, but then we would still have to install chef and its dependencies on top of the basic OS install, and it's not clear how we would then synchronize dependency updates (which chef would pull down from the chef server periodically) with the application deploys.
+
+3. We could install the application using chef-solo, but we'd have to rsync the cookbooks up the first time, and then somehow replace them on deploy, and there's still the problem of installing chef the first time.
+
+Paul tells me that a lot of people make OS images that already have chef installed, and then use the chef server to provision servers with that image and then configure them. This may be true, but I can't find a lot of people talking about it. At any rate, if we were going to create an image, we would just image the final configuration and then do a cap deploy to update the application code. We would have to update the image whenever non-gem dependencies changed, but we wouldn't need Chef at all.
+
+Our customer has suggested we use CentOS Kickstart to set up the new boxes. That leaves us with the default path of setting  up the first one manually, deploying to it with capistrano, and then figuring out how to write a Kickstart config that does more or less the same thing. The downside is that our application staging server will not be set up the same way as our production appliances, but I think that is kind of unavoidable (unless we were to reinstall the OS every time we deployed).
+
+Chef seems to be designed around the problem of maintaining a large number of servers in production, with high fault-tolerance. This is obviously not our situation right now. Depending on what our customer ultimately decides about their support agreement with their installation sites, we may find a use for it further down the road. I do wonder, though, how people who use Chef deal with OS updates.
+
