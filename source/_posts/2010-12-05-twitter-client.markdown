@@ -1,4 +1,5 @@
 ---
+layout: post
 title: "What I'm looking for in an OS X Twitter Client"
 ---
 

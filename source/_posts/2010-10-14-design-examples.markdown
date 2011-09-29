@@ -1,4 +1,5 @@
 ---
+layout: post
 title: "My Problem: Searching for Design Examples"
 ---
 

@@ -1,3 +1,7 @@
+---
+layout: post
+title: "Chef"
+---
 It seems that the main problem Chef was intended to solve is maintaining tens or hundreds of servers in production. The problems I have are a) deploying repeatedly to a single server, keeping non-gem dependencies up to date, and b) installing the application, OS, and all dependencies on new servers, which will be installed at client sites as appliances.
 
 I was hoping that because of the idempotent nature of Chef, there would be some way to serve both of these use-cases with a single process, with the possible exception of the OS install. However, Chef doesn't seem to handle this very well out of the box.

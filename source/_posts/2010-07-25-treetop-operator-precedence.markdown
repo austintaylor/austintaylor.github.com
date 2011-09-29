@@ -1,4 +1,5 @@
 ---
+layout: post
 title: Operator Precedence in Treetop
 ---
 

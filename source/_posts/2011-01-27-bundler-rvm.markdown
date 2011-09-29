@@ -1,4 +1,5 @@
 ---
+layout: post
 title: "Using Bundler and RVM on a Team"
 ---
 
