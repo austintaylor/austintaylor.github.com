@@ -1,0 +1,98 @@
+<p>We haved switched to Ruby 1.9.2 for all new projects, and have been using RVM to manage the switch between those
+new projects and legacy projects that are on 1.8.7. We have also been using Bundler to manage gem dependencies for
+all projects, regardless of Ruby or Rails versions. I have run into a number of issues, and ambiguities with this
+combination of tools, and could not find adequate explanation for how they were to be used together. So I pieced
+together as much information as I could, and I think I now have a pretty clear picture of the state of things.
+This post is an attempt to summarize those findings.</p>
+
+<p>These are some of the questions that arose:</p>
+
+<ul>
+<li>Should we check the <code>.rvmrc</code> file into source control?</li>
+<li>Should we specify a patch level in <code>.rvmrc</code>?</li>
+<li>Should we specify a gemset in <code>.rvmrc</code>?</li>
+<li>Should we use RVM gemsets for each project? Why does this matter when we&#8217;re using Bundler?</li>
+</ul>
+
+
+<p>I&#8217;m going to go ahead and assume that you know why you would want to use RVM rather than, say, MacPorts to install Ruby.
+I&#8217;m also going to assume that you can find the Bundler docs, which clearly explain why you should check in both <code>Gemfile</code>
+and <code>Gemfile.lock</code>, even though that was actually another question that came up for us.</p>
+
+<h3>Checking in .rvmrc</h3>
+
+<p>I was hesitant about this at first, because not everyone on the team had moved to using RVM, but I think it is the only
+sane thing to do. At the very least, it provides documentation of which version of Ruby the application will run against.
+It most likely will be the only place this is actually declared in the project. Everyone doing professional development
+work in Ruby needs to move to RVM on their development machines so that we can migrate to 1.9.2. There&#8217;s really no way
+around it.</p>
+
+<h3>Patch levels</h3>
+
+<p>When you install a version of Ruby with RVM, it will install the latest patch level that it knows about. If you specify
+the version of Ruby in your <code>.rvmrc</code> without a patch level, it will use that version of Ruby. When you upgrade RVM, it will
+possibly know about a later patch level of Ruby, and consider that to be the version specified in your <code>.rvmrc</code>, and complain
+that the specified version is not installed.</p>
+
+<p>So if you don&#8217;t specify a patch level, you will have to upgrade Ruby and rebuild your gemsets if you upgrade RVM. This can
+be annoying. On the other hand, it seems to me that if you do specify the latest patch level, and you are working on a
+variety of projects over many months, you will end up with each project running on a separate install of Ruby, unless you
+take pains to keep each of them up to date. Or perhaps you will start each project by copying the <code>.rvmrc</code> file from the
+previous project, and never progress to later versions. Obviously, specifying a new patch level will force everyone to
+upgrade RVM, which will possibly invalidate the Ruby version they are using for other projects that do not specify a
+patch level.</p>
+
+<p>Another argument I heard was that some hosting companies (in this case EngineYard) document their language support down
+to the patch level, and I think I agree that it would make sense to specify it if you are deploying to such an environment.</p>
+
+<p>I can&#8217;t tell which of these options are better. At RoleModel we&#8217;ve opted to not include the patch level, and people can
+deal with RVM upgrades on their own. It seems to be the better solution for lazy people.</p>
+
+<h3>Specifying a gemset</h3>
+
+<p>I really wish that you could specify a version of Ruby in the <code>.rvmrc</code>, but allow the individual programmer to choose a gemset
+for the project in a separate file, that could be ignored by git. The problem is that if you don&#8217;t specify a gemset, the
+gems get installed into the non-gemset gemset, if that makes sense. It&#8217;s almost like a default or unnamed gemset. The result
+is that you really end up specifying where to install the gems whether you meant to or not. There is no flexibility here for
+an individual developer to decide what to use on his own machine.</p>
+
+<p>In a team scenario, I think it is important to agree on how to manage gemsets. Insofar as gemsets only affect the machine that
+they are on, I wish this could be a matter of personal preference, but because they have to be specified in the <code>.rvmrc</code>, and
+since we already decided that we were going to check in <code>.rvmrc</code>, it seems necessary that all members of the team use gemsets
+in the same way on all development machines.</p>
+
+<h3>Project-specific gemsets</h3>
+
+<p>Bundler basically handles loading the right versions of all the right gems for your application. Why then would you want to
+keep a separate gemset for each project? Well, there are some reasons to do so, and perhaps some reasons not to, and unfortunately,
+for the reason explained above, this is not really a personal decision.</p>
+
+<p>The reasons I found to use separate gemsets are:</p>
+
+<ol>
+<li>Your shell environment is the same as your application environment (no <code>bundle exec</code>).</li>
+<li>You can easily browse and grep through the source code of all your dependencies, by navigating to the gemset install directory.</li>
+<li>It prevents some reported &#8216;heisenbugs&#8217;, according to the <a href="http://twitter.com/#!/wayneeseguin/status/24507569355628544">author of RVM</a>. I wonder if this is related to number 1.</li>
+</ol>
+
+
+<p>The only reason I know of to keep them together is disk space, which is only really a concern for early adopters of SSDs (like myself).
+It&#8217;s also kind of moot once you understand what&#8217;s going on with patch levels. If you aren&#8217;t anal about keeping all your projects
+on the latest patch level then you are going to end up with poorly named <em>de facto</em> gemsets for each project anyway.</p>
+
+<p>The other issue that you need to understand in making a decision is that the <code>@global</code> gemset gets inherited by all other gemsets on the
+machine (within the same version of Ruby). Because of this, if you use <code>@global</code> for your application, you will interfere with
+any other application on the same machine trying to have a complete set of dependencies in a project-specific gemset. For example, if you
+were to install Rails 3.0.3 in the <code>@global</code> gemset for one application, and another application where to install the same version of Rails
+in a separate gemset for that application, the Rails gem itself would be installed again, but it would resolve all of it&#8217;s dependencies,
+such as ActiveRecord and ActionPack, through <code>@global</code>, and would not install separate versions of them.</p>
+
+<p>So for the sake of playing nice with others, I think it would be better to use something like <code>@shared</code> if you want to use a common gemset
+between projects. I also think that there are three good reasons to use project-specific gemsets, but none of them really affect
+the project as a whole, which is why I would prefer that it was a matter of preference rather than team policy.</p>
+
+<h3>Bonus: the proper use of @global</h3>
+
+<p>One bit of advise I thought made a lot of sense was to install Bundler itself in the <code>@global</code> gemset. I think this would also be
+a good place for utility gems such as <code>gemedit</code> that do not need to be loaded into the application environment at all, but you would
+like to have in your shell environment.</p>

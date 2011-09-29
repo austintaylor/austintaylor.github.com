@@ -1,0 +1,1033 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title>My Octopress Blog</title>
+  <link href="http://austintaylor.github.com/atom.xml" rel="self"/>
+  <link href="http://austintaylor.github.com/"/>
+  <updated>2011-09-29T18:12:15-04:00</updated>
+  <id>http://austintaylor.github.com/</id>
+  <author>
+    <name>Your Name</name>
+    
+  </author>
+
+  
+  <entry>
+    <title>Chef</title>
+    <link href="http://austintaylor.github.com/blog/2011/03/18/chef/"/>
+    <updated>2011-03-18T00:00:00-04:00</updated>
+    <id>http://austintaylor.github.com/blog/2011/03/18/chef</id>
+    <content type="html">&lt;p&gt;It seems that the main problem Chef was intended to solve is maintaining tens or hundreds of servers in production. The problems I have are a) deploying repeatedly to a single server, keeping non-gem dependencies up to date, and b) installing the application, OS, and all dependencies on new servers, which will be installed at client sites as appliances.&lt;/p&gt;
+
+&lt;p&gt;I was hoping that because of the idempotent nature of Chef, there would be some way to serve both of these use-cases with a single process, with the possible exception of the OS install. However, Chef doesn&amp;#8217;t seem to handle this very well out of the box.&lt;/p&gt;
+
+&lt;p&gt;Configurations I&amp;#8217;ve thought about:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;&lt;p&gt;The capistrano deploy could invoke chef-solo to update non-gem dependencies, but this requires us to install the application itself, ruby, bundler, and all the dependencies of chef-solo manually.&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;I could write chef cookbooks to set up everything, including the application and set up a chef server, but then we would still have to install chef and its dependencies on top of the basic OS install, and it&amp;#8217;s not clear how we would then synchronize dependency updates (which chef would pull down from the chef server periodically) with the application deploys.&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;We could install the application using chef-solo, but we&amp;#8217;d have to rsync the cookbooks up the first time, and then somehow replace them on deploy, and there&amp;#8217;s still the problem of installing chef the first time.&lt;/p&gt;&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;p&gt;Paul tells me that a lot of people make OS images that already have chef installed, and then use the chef server to provision servers with that image and then configure them. This may be true, but I can&amp;#8217;t find a lot of people talking about it. At any rate, if we were going to create an image, we would just image the final configuration and then do a cap deploy to update the application code. We would have to update the image whenever non-gem dependencies changed, but we wouldn&amp;#8217;t need Chef at all.&lt;/p&gt;
+
+&lt;p&gt;Our customer has suggested we use CentOS Kickstart to set up the new boxes. That leaves us with the default path of setting  up the first one manually, deploying to it with capistrano, and then figuring out how to write a Kickstart config that does more or less the same thing. The downside is that our application staging server will not be set up the same way as our production appliances, but I think that is kind of unavoidable (unless we were to reinstall the OS every time we deployed).&lt;/p&gt;
+
+&lt;p&gt;Chef seems to be designed around the problem of maintaining a large number of servers in production, with high fault-tolerance. This is obviously not our situation right now. Depending on what our customer ultimately decides about their support agreement with their installation sites, we may find a use for it further down the road. I do wonder, though, how people who use Chef deal with OS updates.&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>Using Bundler and RVM on a Team</title>
+    <link href="http://austintaylor.github.com/blog/2011/01/27/bundler-rvm/"/>
+    <updated>2011-01-27T00:00:00-05:00</updated>
+    <id>http://austintaylor.github.com/blog/2011/01/27/bundler-rvm</id>
+    <content type="html">&lt;p&gt;We haved switched to Ruby 1.9.2 for all new projects, and have been using RVM to manage the switch between those
+new projects and legacy projects that are on 1.8.7. We have also been using Bundler to manage gem dependencies for
+all projects, regardless of Ruby or Rails versions. I have run into a number of issues, and ambiguities with this
+combination of tools, and could not find adequate explanation for how they were to be used together. So I pieced
+together as much information as I could, and I think I now have a pretty clear picture of the state of things.
+This post is an attempt to summarize those findings.&lt;/p&gt;
+
+&lt;p&gt;These are some of the questions that arose:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Should we check the &lt;code&gt;.rvmrc&lt;/code&gt; file into source control?&lt;/li&gt;
+&lt;li&gt;Should we specify a patch level in &lt;code&gt;.rvmrc&lt;/code&gt;?&lt;/li&gt;
+&lt;li&gt;Should we specify a gemset in &lt;code&gt;.rvmrc&lt;/code&gt;?&lt;/li&gt;
+&lt;li&gt;Should we use RVM gemsets for each project? Why does this matter when we&amp;#8217;re using Bundler?&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;I&amp;#8217;m going to go ahead and assume that you know why you would want to use RVM rather than, say, MacPorts to install Ruby.
+I&amp;#8217;m also going to assume that you can find the Bundler docs, which clearly explain why you should check in both &lt;code&gt;Gemfile&lt;/code&gt;
+and &lt;code&gt;Gemfile.lock&lt;/code&gt;, even though that was actually another question that came up for us.&lt;/p&gt;
+
+&lt;h3&gt;Checking in .rvmrc&lt;/h3&gt;
+
+&lt;p&gt;I was hesitant about this at first, because not everyone on the team had moved to using RVM, but I think it is the only
+sane thing to do. At the very least, it provides documentation of which version of Ruby the application will run against.
+It most likely will be the only place this is actually declared in the project. Everyone doing professional development
+work in Ruby needs to move to RVM on their development machines so that we can migrate to 1.9.2. There&amp;#8217;s really no way
+around it.&lt;/p&gt;
+
+&lt;h3&gt;Patch levels&lt;/h3&gt;
+
+&lt;p&gt;When you install a version of Ruby with RVM, it will install the latest patch level that it knows about. If you specify
+the version of Ruby in your &lt;code&gt;.rvmrc&lt;/code&gt; without a patch level, it will use that version of Ruby. When you upgrade RVM, it will
+possibly know about a later patch level of Ruby, and consider that to be the version specified in your &lt;code&gt;.rvmrc&lt;/code&gt;, and complain
+that the specified version is not installed.&lt;/p&gt;
+
+&lt;p&gt;So if you don&amp;#8217;t specify a patch level, you will have to upgrade Ruby and rebuild your gemsets if you upgrade RVM. This can
+be annoying. On the other hand, it seems to me that if you do specify the latest patch level, and you are working on a
+variety of projects over many months, you will end up with each project running on a separate install of Ruby, unless you
+take pains to keep each of them up to date. Or perhaps you will start each project by copying the &lt;code&gt;.rvmrc&lt;/code&gt; file from the
+previous project, and never progress to later versions. Obviously, specifying a new patch level will force everyone to
+upgrade RVM, which will possibly invalidate the Ruby version they are using for other projects that do not specify a
+patch level.&lt;/p&gt;
+
+&lt;p&gt;Another argument I heard was that some hosting companies (in this case EngineYard) document their language support down
+to the patch level, and I think I agree that it would make sense to specify it if you are deploying to such an environment.&lt;/p&gt;
+
+&lt;p&gt;I can&amp;#8217;t tell which of these options are better. At RoleModel we&amp;#8217;ve opted to not include the patch level, and people can
+deal with RVM upgrades on their own. It seems to be the better solution for lazy people.&lt;/p&gt;
+
+&lt;h3&gt;Specifying a gemset&lt;/h3&gt;
+
+&lt;p&gt;I really wish that you could specify a version of Ruby in the &lt;code&gt;.rvmrc&lt;/code&gt;, but allow the individual programmer to choose a gemset
+for the project in a separate file, that could be ignored by git. The problem is that if you don&amp;#8217;t specify a gemset, the
+gems get installed into the non-gemset gemset, if that makes sense. It&amp;#8217;s almost like a default or unnamed gemset. The result
+is that you really end up specifying where to install the gems whether you meant to or not. There is no flexibility here for
+an individual developer to decide what to use on his own machine.&lt;/p&gt;
+
+&lt;p&gt;In a team scenario, I think it is important to agree on how to manage gemsets. Insofar as gemsets only affect the machine that
+they are on, I wish this could be a matter of personal preference, but because they have to be specified in the &lt;code&gt;.rvmrc&lt;/code&gt;, and
+since we already decided that we were going to check in &lt;code&gt;.rvmrc&lt;/code&gt;, it seems necessary that all members of the team use gemsets
+in the same way on all development machines.&lt;/p&gt;
+
+&lt;h3&gt;Project-specific gemsets&lt;/h3&gt;
+
+&lt;p&gt;Bundler basically handles loading the right versions of all the right gems for your application. Why then would you want to
+keep a separate gemset for each project? Well, there are some reasons to do so, and perhaps some reasons not to, and unfortunately,
+for the reason explained above, this is not really a personal decision.&lt;/p&gt;
+
+&lt;p&gt;The reasons I found to use separate gemsets are:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;Your shell environment is the same as your application environment (no &lt;code&gt;bundle exec&lt;/code&gt;).&lt;/li&gt;
+&lt;li&gt;You can easily browse and grep through the source code of all your dependencies, by navigating to the gemset install directory.&lt;/li&gt;
+&lt;li&gt;It prevents some reported &amp;#8216;heisenbugs&amp;#8217;, according to the &lt;a href=&quot;http://twitter.com/#!/wayneeseguin/status/24507569355628544&quot;&gt;author of RVM&lt;/a&gt;. I wonder if this is related to number 1.&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;p&gt;The only reason I know of to keep them together is disk space, which is only really a concern for early adopters of SSDs (like myself).
+It&amp;#8217;s also kind of moot once you understand what&amp;#8217;s going on with patch levels. If you aren&amp;#8217;t anal about keeping all your projects
+on the latest patch level then you are going to end up with poorly named &lt;em&gt;de facto&lt;/em&gt; gemsets for each project anyway.&lt;/p&gt;
+
+&lt;p&gt;The other issue that you need to understand in making a decision is that the &lt;code&gt;@global&lt;/code&gt; gemset gets inherited by all other gemsets on the
+machine (within the same version of Ruby). Because of this, if you use &lt;code&gt;@global&lt;/code&gt; for your application, you will interfere with
+any other application on the same machine trying to have a complete set of dependencies in a project-specific gemset. For example, if you
+were to install Rails 3.0.3 in the &lt;code&gt;@global&lt;/code&gt; gemset for one application, and another application where to install the same version of Rails
+in a separate gemset for that application, the Rails gem itself would be installed again, but it would resolve all of it&amp;#8217;s dependencies,
+such as ActiveRecord and ActionPack, through &lt;code&gt;@global&lt;/code&gt;, and would not install separate versions of them.&lt;/p&gt;
+
+&lt;p&gt;So for the sake of playing nice with others, I think it would be better to use something like &lt;code&gt;@shared&lt;/code&gt; if you want to use a common gemset
+between projects. I also think that there are three good reasons to use project-specific gemsets, but none of them really affect
+the project as a whole, which is why I would prefer that it was a matter of preference rather than team policy.&lt;/p&gt;
+
+&lt;h3&gt;Bonus: the proper use of @global&lt;/h3&gt;
+
+&lt;p&gt;One bit of advise I thought made a lot of sense was to install Bundler itself in the &lt;code&gt;@global&lt;/code&gt; gemset. I think this would also be
+a good place for utility gems such as &lt;code&gt;gemedit&lt;/code&gt; that do not need to be loaded into the application environment at all, but you would
+like to have in your shell environment.&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>What I&#8217;m looking for in an OS X Twitter Client</title>
+    <link href="http://austintaylor.github.com/blog/2010/12/05/twitter-client/"/>
+    <updated>2010-12-05T00:00:00-05:00</updated>
+    <id>http://austintaylor.github.com/blog/2010/12/05/twitter-client</id>
+    <content type="html">&lt;ol&gt;
+&lt;li&gt;A clean, neutral UI design (like Tweetie).&lt;/li&gt;
+&lt;li&gt;Clear separation of tweets (like Tweetie).&lt;/li&gt;
+&lt;li&gt;Good API support (retweets).&lt;/li&gt;
+&lt;li&gt;An integrated timeline (@mentions and DMs in with everything else).&lt;/li&gt;
+&lt;li&gt;Personal timeline search (I don&amp;#8217;t care about public timeline search).&lt;/li&gt;
+&lt;li&gt;Deleted tweets get deleted on refresh.&lt;/li&gt;
+&lt;li&gt;New posts are made from a window, of which I can have several (like Tweetie).&lt;/li&gt;
+&lt;li&gt;Hidden Dock icon (like Tweetie).&lt;/li&gt;
+&lt;li&gt;Remembers your scroll position (like Tweetie).&lt;/li&gt;
+&lt;li&gt;Marks everything as read as soon as you scroll to the top (like Tweetie).&lt;/li&gt;
+&lt;li&gt;Shows a new tweets indicator, but without a count (like Tweetie).&lt;/li&gt;
+&lt;li&gt;Allows blocking from within the app.&lt;/li&gt;
+&lt;li&gt;Allows you to mute people and filter tweets, without completely burying them.&lt;/li&gt;
+&lt;li&gt;Integrated Profile/Timeline UI.&lt;/li&gt;
+&lt;li&gt;Bi-directional conversation tracing (does the API even support this?)&lt;/li&gt;
+&lt;li&gt;In-app picture viewing.&lt;/li&gt;
+&lt;li&gt;Infinite scrolling (like Tweetie).&lt;/li&gt;
+&lt;li&gt;User-extensible image and url helpers.&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;p&gt;Does the world really need another Twitter client? It seems to be a real problem. Everybody has a different
+idea of how it should work. What I envision would have even less UI than Tweetie, but would support several
+use-cases that are important to me. Tweetie 2, if it ever happens, would fix retweets, which would probably
+be enough to satisfy me.&lt;/p&gt;
+
+&lt;p&gt;Or I could write it. I&amp;#8217;m definitely interested in starting another Objective-C project, but I don&amp;#8217;t know if
+this is really what I want to do. I&amp;#8217;d gain more by fixing Fireworks than Tweetie.&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>My Problem: Searching for Design Examples</title>
+    <link href="http://austintaylor.github.com/blog/2010/10/14/design-examples/"/>
+    <updated>2010-10-14T00:00:00-04:00</updated>
+    <id>http://austintaylor.github.com/blog/2010/10/14/design-examples</id>
+    <content type="html">&lt;p&gt;When working on a website design, I often find that I am faced with very specific design challenges
+in much the same way that I am face with very specific code challenges when I am programming. The
+difference is that when I have a code-related problem, I can usually Google arround and find someone
+who was faced with a similar problem and see how they solved it. Their solution may not be the one
+I ultimately choose, but it is very helpful to me to see what they ended up doing.&lt;/p&gt;
+
+&lt;p&gt;This information comes from a variety of sources. Sometimes it is written up in a blog post, or
+described in a screen cast. Other times it is the answer to a question on Stack Overflow, a post
+to a mailing list, a bug report, or a patch. Perhaps the most common case of all is that the
+solution is found embedded in the source code of an open-source project.&lt;/p&gt;
+
+&lt;p&gt;At any rate, between searching for specific method names, technical terms, and error messages,
+bouncing back and forth between web search and code search, I can usually find someone, somewhere
+who has had the same problem as me. Sometimes they have a solution, and sometimes they don&amp;#8217;t, but
+it is almost always worthwhile to find that person, and hear what they have to say.&lt;/p&gt;
+
+&lt;p&gt;But when I find myself facing a specific design problem, I don&amp;#8217;t know where to go. I know that other
+people have done similar things. What do you do, for instance, when you need to design a form on a
+960 pixel wide layout, and the form has logical sections, and you don&amp;#8217;t want to use boxes, because
+they are lame, and you&amp;#8217;ve used them enough in the past to last your whole lifetime as a designer?
+I know people have done it. I&amp;#8217;m sure I&amp;#8217;ve seen a dozen sites that did it. But I don&amp;#8217;t know what they
+are. It&amp;#8217;s not even like it&amp;#8217;s really a conundrum, but it would benefit a budding designer to see a
+few real examples.&lt;/p&gt;
+
+&lt;p&gt;I imagine that there are some instances where I simply don&amp;#8217;t know the right terms to search on. But
+I hardly know where to turn to learn them. I have certainly learned some terminology related to design
+principles, but it is not very useful for describing specific scenarios. When I do programming-related
+searches, I often come to progressively better search terms as the information I read teaches me new
+terminology. I cannot even get started down this path when I go looking for design help.&lt;/p&gt;
+
+&lt;p&gt;In that design is not nearly as inherently textual as programming, most of the information that I am
+looking for does not exist in a searchable format at all. While the designs may be implemented in code,
+most of them do not have their code indexed, and searching the code would not yield useful results anyway.&lt;/p&gt;
+
+&lt;p&gt;I imagine the only possible solution would be to build a library of specific, curated examples, using
+annotated screenshots. I have tried to do exactly this using the wonderful Little Snapper, but this
+doesn&amp;#8217;t usually help me when I&amp;#8217;m stuck, because the pages I have captured an annotated in it are there
+because of specific things I noticed about them&amp;mdash;design strategies that I have already noticed,
+and to some degree, absorbed. When I really need help, I need to notice things that I haven&amp;#8217;t noticed
+before.&lt;/p&gt;
+
+&lt;p&gt;I know that there is the Ember social network attached to the Little Snapper, and I have done a little
+browsing on it, but it&amp;#8217;s categories are very broad, and it seems more geared toward general inspiration
+rather than catalogueing specific solutions to specific scenarios. It seems to me that you would have to
+build some kind of glossary or ontology to describe the patterns exemplified in the gallery (i.e. a pattern
+language) if wanted them to be easily searchable.&lt;/p&gt;
+
+&lt;p&gt;I wonder how much of this language actually exists, and how much of it would have to be invented for this
+problem to ever be really solved. Programming is technical of necessity, but design is only technical
+when you decide you want to make it technical. In other words, programming techniques (I&amp;#8217;m thinking more of
+specific algorithms and constructs rather than &amp;#8220;design patterns&amp;#8221;) by their nature end up having names, becuase
+they become the actual constructs of the code, which is textual.&lt;/p&gt;
+
+&lt;p&gt;Also, programmers often work together on teams, and often work remotely, so it is a necessity that they be able to
+talk very specifically about their approaches and implementations, whereas designers often work alone, or
+together in person, and can fare much better with vague terminology. Furthermore, the nature and behavior
+of a program can be very subtle and involved, whereas a design, though it may be subtle, is largely self-evident
+because it is visual, so that description may not be necessary at all.&lt;/p&gt;
+
+&lt;p&gt;So it seems to me that creating a pattern language for web design, with an accompanying gallery of examples, would
+be a boon to designers everywhere, especially those with limited experience. It also seems that this would be an
+enormous undertaking, because much of the necessary terminology does not seem to really exist.&lt;/p&gt;
+
+&lt;p&gt;I would be very pleased to hear how other designers find examples of other people&amp;#8217;s work, and generally where they
+go for help when they find themselves in what is, for them, uncharted territory.&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>Operator Precedence in Treetop</title>
+    <link href="http://austintaylor.github.com/blog/2010/07/25/treetop-operator-precedence/"/>
+    <updated>2010-07-25T00:00:00-04:00</updated>
+    <id>http://austintaylor.github.com/blog/2010/07/25/treetop-operator-precedence</id>
+    <content type="html">&lt;p&gt;I have been using &lt;a href=&quot;http://en.wikipedia.org/wiki/Shunting-yard_algorithm&quot;&gt;Treetop&lt;/a&gt; to implement an small expression langauge, and I recently
+ran into the problem of operator precedence and associativity. I had to deal with infix
+operators once before using JavaCC, when I was working on Viento, but I didn&amp;#8217;t bother
+to implement operator precedence correctly, because it wasn&amp;#8217;t high priority, and I had
+no idea how to go about it.&lt;/p&gt;
+
+&lt;p&gt;In a recursive descent parser, the most naïve way to implement infix operators is to
+just put an expression on either side of an operator, and hope for the best.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;rule infix_operation
+  expression operator expression
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3&gt;Associativity&lt;/h3&gt;
+
+&lt;p&gt;The problem with the is left-recursion, which is discussed on the Treetop website.
+Basically, since an infix operation is an expression, referencing expression as
+the first thing in the infix definition results in infinite recursion. The easiest
+way to fix this is to put something more specific on the left side of the definition.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;rule infix_operation
+  primary operator expression
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This basically works. Primary represents any kind of single value, such as a literal,
+a variable, or possibly a parenthesized expression. Since &lt;code&gt;infix_operation&lt;/code&gt; is an expression,
+they will recursively chain together. However, there are two problems with this approach.
+First, it doesn&amp;#8217;t deal with operator precedence in any way. Second, it ends up being
+right-associative.&lt;/p&gt;
+
+&lt;p&gt;Associativity describes the order that operations of the same precedence level are executed.
+An operator that posesses the &amp;#8220;associative&amp;#8221; property is an operator for which associativity
+does not matter. E.g.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(1 + 2) + 3 = 1 + (2 + 3)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;However&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;(3 - 2) - 1 ≠ 3 - (2 - 1)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Subtraction is an example of an operation which does not have the associative property.
+Because of this, it matters which direction we evaluate a string of subtraction operations.
+Subtraction is normally evaluated left to right, so that &lt;code&gt;3 - 2 - 1 = 0&lt;/code&gt;. However, our
+implementation processes right to left, so that &lt;code&gt;3 - 2 - 1 = 2&lt;/code&gt;. Most operations should
+be processed left to right. Exponentiation is an example of an operation that is
+processed right to left (at least in Ruby).&lt;/p&gt;
+
+&lt;h3&gt;Operator Precedence&lt;/h3&gt;
+
+&lt;p&gt;On the Treetop website, there are examples of given of implementing operator precedence
+through a hierarchy of nonterminals (rules). These examples handle precedence, but they
+are still right-associative, and they require you to have a separate rule for every
+precedence level. E.g.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;rule multitive
+  additive [*/] multitive / additive
+end
+
+rule additive
+  primary [+-] additive / primary
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The &lt;code&gt;/&lt;/code&gt; operator in Treetop denotes a branch. I believe the reason they chain the
+lower-precedence operation with each higher-precedence operation is so that you
+don&amp;#8217;t have to enumerate them all in precedence order at the top level.&lt;/p&gt;
+
+&lt;p&gt;I originally imitated this pattern in my expression language, but I didn&amp;#8217;t like
+the way I had to grow the parser to add more operators, and I couldn&amp;#8217;t figure out
+how to modify it to have correct associativity.&lt;/p&gt;
+
+&lt;h3&gt;Precedence Tables&lt;/h3&gt;
+
+&lt;p&gt;I had never used an operator precedence table before, but I had seen them used in tools
+such as racc and yacc. I decided that it was time to learn how they worked, and implement
+one using Treetop.&lt;/p&gt;
+
+&lt;p&gt;It turns out that there is a linear-time algorithm invented by Edsger Dijkstra called the
+&lt;a href=&quot;http://en.wikipedia.org/wiki/Shunting-yard_algorithm&quot;&gt;Shunting Yard Algorithm&lt;/a&gt;. It takes a list of operators and operands in the order they appear,
+and returns a list of the same operators and operands in &lt;a href=&quot;http://en.wikipedia.org/wiki/Reverse_Polish_Notation&quot;&gt;Reverse Polish Notation&lt;/a&gt; based on
+the precedence and associativity of the operators. RPN is a stack-based notation where the
+order of operations is explicit, without the need for parenteses. Shunting Yard can also
+handle prefix operators and parentheses, but my implementation doesn&amp;#8217;t include those because
+I handle them elsewhere in the grammar.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;ruby&#8217;&gt;def shunting_yard(input)
+  returning [] do |rpn|
+    operator_stack = []
+    input.each do |object|
+      if object.operator?
+        op1 = object
+        rpn &amp;lt;&amp;lt; operator_stack.pop while (op2 = operator_stack.last) &amp;amp;&amp;amp; (op1.left_associative? ? op1.precedence &amp;lt;= op2.precedence : op1.precedence &amp;lt; op2.precedence)
+        operator_stack &amp;lt;&amp;lt; op1
+      else
+        rpn &amp;lt;&amp;lt; object
+      end
+    end
+    rpn &amp;lt;&amp;lt; operator_stack.pop until operator_stack.empty?
+  end
+end&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;I then process the RPN output.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;ruby&#8217;&gt;def rpn(input)
+  results = []
+  input.each do |object|
+    if object.operator?
+      r, l = results.pop, results.pop
+      results &amp;lt;&amp;lt; object.apply(l, r)
+    else
+      results &amp;lt;&amp;lt; object
+    end
+  end
+  results.first
+end&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;I use the following rules in the grammar to construct a list of operands and operators that
+are appropriate to pass into &lt;code&gt;shunting_yard&lt;/code&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;ruby&#8217;&gt;rule infix_operation
+  lhs:infix_operation_chain rhs:primary {
+    def list
+      lhs.list + [rhs]
+    end
+  }
+end
+
+rule infix_operation_chain
+  (primary operator)+ {
+    def list
+      elements.map {|e| [e.primary, e.operator] }.flatten
+    end
+  }
+end&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;This is a simplified version of the implementation (it doesn&amp;#8217;t allow for whitespace, for
+instance), but it shows the basic solution. You could probably combine the two rules to
+simplify it further, but I wanted to show the basic shape of my solution.&lt;/p&gt;
+
+&lt;p&gt;To build the actual precedence table, I created the following Module. The methods &lt;code&gt;#precedence&lt;/code&gt;
+and &lt;code&gt;#left_associative?&lt;/code&gt; you see in the implementation of &lt;code&gt;shunting_yard&lt;/code&gt; depend on the &lt;code&gt;lookup&lt;/code&gt; method
+on &lt;code&gt;PrecedenceTable&lt;/code&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;ruby&#8217;&gt;module PrecedenceTable
+  Operator = Struct.new(:precedence, :associativity)
+
+  def self.lookup(operator)
+    @operators[operator]
+  end
+
+  def self.op(associativity, *operators)
+    @precedence ||= 0
+    @operators ||= {}
+    operators.each do |operator|
+      @operators[operator] = Operator.new(@precedence, associativity)
+    end
+    @precedence += 1
+  end
+
+  # operator precedence, low to high
+  op :left, &#8216;||&#8217;
+  op :left, &#8216;&amp;amp;&amp;amp;&#8217;
+  op :none, &#8216;==&#8217;, &#8216;!=&#8217;
+  op :left, &#8216;&amp;lt;&#8217;, &#8216;&amp;lt;=&#8217;, &#8216;&amp;gt;&#8217;, &#8216;&amp;gt;=&#8217;
+  op :left, &#8216;+&#8217;, &#8216;-&#8217;
+  op :left, &#8216;*&#8217;, &#8216;/&#8217;
+  op :right, &#8216;^&#8217;
+end&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;h3&gt;Javascript&lt;/h3&gt;
+
+&lt;p&gt;One of the other interesting things about the expression language I was working on is that
+it can compile itself to Javascript for execution on the client. At first, I was just writing
+out infix operations verbatim, relying on the assumption that Javascript has the same precedence
+rules as our language. This broke down when we wanted to add the &lt;code&gt;^&lt;/code&gt; operator. In Javascript,
+exponentiation is accomplished by calling &lt;code&gt;Math.pow(x, y)&lt;/code&gt; rather than by an infix operator.&lt;/p&gt;
+
+&lt;p&gt;In order to make this work, we had to define the order of operations explicitly in our Javascript
+output. To do this, we refactored our implementation of the RPN algorithm to take two lambdas, which
+tell it what to do with values and operators.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;ruby&#8217;&gt;def rpn(input, operator_lambda, evaluate_lambda)
+  results = []
+  input.each do |object|
+    if object.operator?
+      r, l = results.pop, results.pop
+      results &amp;lt;&amp;lt; operator_lambda.call(object, l, r)
+    else
+      results &amp;lt;&amp;lt; evaluate_lambda.call(object)
+    end
+  end
+  results.first
+end
+
+def to_js(input)
+  rpn(shunting_yard(input),
+      lambda { |op,l,r| op == &#8216;^&#8217; ? &amp;quot;Math.pow(#{l},#{r})&amp;quot; : &amp;quot;(#{l} #{op} #{r})&amp;quot; }
+      lambda { |operand| operand.to_js }
+  )
+end&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;I included this last part even though I don&amp;#8217;t expect anyone to ever have the same problem, because
+I thought it was really interesting that the RPN algorithm can be so easily modified to generate
+code rather than simply evaluate numbers. In this case the results stack contains strings rather
+than numbers.&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>Learning Haskell</title>
+    <link href="http://austintaylor.github.com/blog/2010/06/29/haskell/"/>
+    <updated>2010-06-29T00:00:00-04:00</updated>
+    <id>http://austintaylor.github.com/blog/2010/06/29/haskell</id>
+    <content type="html">&lt;p&gt;I spent a couple of days reading &lt;a href=&quot;http://learnyouahaskell.com&quot;&gt;Haskell&lt;/a&gt; &lt;a href=&quot;http://learnyouahaskell.com&quot;&gt;tutorials&lt;/a&gt;, and writing a little
+bit of &lt;a href=&quot;http://gist.github.com/417389&quot;&gt;code&lt;/a&gt; in it. I find it to be a very attractive and exciting language.
+I put together a few of the reasons why I am interested in Haskell.&lt;/p&gt;
+
+&lt;h3&gt;Strong Types, and Type Inference&lt;/h3&gt;
+
+&lt;p&gt;When I used to program Java, I always hated the type system. It just felt like
+it was constantly getting in your way, and it seldom gave you anything back.
+In fact, it actively discouraged you from breaking things down into smaller
+methods and shorter statements, because every time you did, you suddenly had to
+add type declarations for everything again.&lt;/p&gt;
+
+&lt;p&gt;When I moved to Ruby, not having to declare types felt absolutely brilliant.
+Of course, &lt;em&gt;I&lt;/em&gt; knew what the type was, because I was the programmer, after all.
+I was the master. It would be the type of whatever I assigned, duh. But from time
+to time, I wished that I had declared types on things. It would be useful for
+metaprogramming, you know. That&amp;#8217;s about all it was ever good for in Java. And
+having declared types on public library functions can&amp;#8217;t do anything to harm
+documentation efforts.&lt;/p&gt;
+
+&lt;p&gt;In Haskell, you really seem to have the best of both worlds. You can declare types
+as much or as little as you want, and the type inference figures out the rest. In
+general, though, you always declare inputs and outputs to public functions. The
+supportive code for the high level functions can be totally undeclared, which is
+awesome, because it dramatically reduces the friction in breaking down an algorithm.
+Consider the following function.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;haskell&#8217;&gt;toEnglish :: Int -&amp;gt; String
+toEnglish x
+  | x &amp;lt; 0 = &amp;quot;negative &amp;quot; ++ toEnglish (-x)
+  | x &amp;lt; 20 = ones !! x
+  | mod x d == 0 &amp;amp;&amp;amp; n == 0 = tens !! div x d
+  | mod x d == 0 = (toEnglish $ div x d)  ++ delim ++ orderNames !! n
+  | otherwise = (toEnglish $ div x d * d) ++ delim ++ (toEnglish $ mod x d)
+  where n = length (takeWhile (x &amp;gt;=) orders) - 1
+        d = orders !! n
+        delim = if n == 0 then &amp;quot;-&amp;quot; else &amp;quot; &amp;quot;
+        orders = 10:100:[1000 ^ x | x &amp;lt;- [1..]]
+        ones = words &amp;quot;zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen&amp;quot;
+        tens = words &amp;quot;zero ten twenty thirty forty fifty sixty seventy eighty ninety&amp;quot;
+        orderNames = words &amp;quot;ten hundred thousand million billion trillion quadrillion quintillion sextillion septillion octillion&amp;quot;&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;It takes an &lt;code&gt;Int&lt;/code&gt; and returns a &lt;code&gt;String&lt;/code&gt;. What else do you need to know? Between the types
+and the name, you probably don&amp;#8217;t need a lot more documentation to be able to use this
+function. But notice the &lt;code&gt;where&lt;/code&gt; section at the bottom. Those are helper functions and
+constants, with no types to be found. However, the compiler does know what their types
+are, even though they aren&amp;#8217;t declared. That&amp;#8217;s what type inference is all about. The high-level
+declarations serve as a sanity check that you and the compiler are on the same page about
+what the types are.&lt;/p&gt;
+
+&lt;p&gt;By the way, I really love the way you break down your function into little pieces and drop
+them into the &lt;code&gt;where&lt;/code&gt; section. I know you can do this with procs in Ruby, or with functions
+in Javascript, but no where is it this easy to use private helper functions without poluting a
+larger namespace.&lt;/p&gt;
+
+&lt;p&gt;For polymorphism, Haskell provides Type Classes, which are a little bit like Java Interfaces,
+only way better. You can declare multiple type classes on a type, such as declaring a function
+that takes a parameter that can behave like three different things. In practice, this is a lot
+closer to duck-typing than you might think.&lt;/p&gt;
+
+&lt;p&gt;The part that sort of blows my mind is that Haskell can be polymorphic on both ends of a function.
+Consider. In C you might call a function like &lt;code&gt;atoi&lt;/code&gt; to convert a string to an integer. Both types
+are declared in the name of the function (&amp;#8220;AsciiToInteger&amp;#8221;, as I understand it). In Ruby you would
+call to_i on the string. The return type is declared in the name of the function, but the input type
+is inferred. If it&amp;#8217;s a string, it calls the string implementation, but if it&amp;#8217;s a different type that
+defines to_i, it calls that implementation instead.&lt;/p&gt;
+
+&lt;p&gt;In Haskell you can be polymorphic on either end of the function. (I don&amp;#8217;t know whether you could do
+both ends at the same time to define a universal &lt;code&gt;coerce&lt;/code&gt; function.) To convert a string to an integer
+you call &lt;code&gt;read&lt;/code&gt;. It figures out what you want, whether an integer, float, boolean, or whatever, based
+on what you do with it once you have it. (In the terminal you would have to declare the type, like
+&lt;code&gt;read &quot;12&quot; :: Int&lt;/code&gt;.)&lt;/p&gt;
+
+&lt;p&gt;Taking this idea further, you can even have something like polymorphic constants. Instead of calling
+&lt;code&gt;Integer.MAX_BOUND&lt;/code&gt;, you can simply call &lt;code&gt;maxBound&lt;/code&gt;, and it will return the max bound for integers,
+or characters, or whatever you&amp;#8217;re talking about that can be bounded. I know this doesn&amp;#8217;t shorten the
+code a ton or anything, but it seems really cool to me that if you defined a new type that had natural
+bounds, you could define it in this way, and any method anywhere that took a bounded type could call
+your bounds. I suppose you could do this in Ruby with a convention like &lt;code&gt;object.class.max_bound&lt;/code&gt; or
+something, but it isn&amp;#8217;t a part of the core language.&lt;/p&gt;
+
+&lt;h3&gt;Algebraic Types&lt;/h3&gt;
+
+&lt;p&gt;In addition to the type inference system, the type system itself is just really, really fascinating.
+In a sense, everything is an enumeration.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;haskell&#8217;&gt;data Day = Sunday | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;This is an example of why you would want to implement the &lt;code&gt;Bounded&lt;/code&gt; type class. Each of those options
+is a type constructor, so they&amp;#8217;re in the containing namespace (you just say &lt;code&gt;Sunday&lt;/code&gt;, not &lt;code&gt;Day.Sunday&lt;/code&gt;).&lt;/p&gt;
+
+&lt;p&gt;Here&amp;#8217;s a more interesting example.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;haskell&#8217;&gt;data PayMethod = CreditCard CardNumber Name ExpirationDate VerificationCode
+               | Check CheckNumber
+               | Cash&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;The first word in each option is the name of the constructor, but the following words are properties.
+They don&amp;#8217;t have names in this syntax, they just are what they are. The type is the name of the property,
+in a sense. There is another syntax where you give each property a separate name and type, but often
+the type is enough. Obviously in this case you would probably just alias all of these types to String,
+but I think it&amp;#8217;s a really interesting tradeoff.&lt;/p&gt;
+
+&lt;p&gt;There&amp;#8217;s more you can do with the type system, but what was the most interesting to me was that seeing
+a couple of examples like this made me realize how much ORM has impovrished even our object-oriented
+type systems. You could do a lot of this same stuff in Ruby, but you wouldn&amp;#8217;t (at least in Rails) because
+of the database. It&amp;#8217;s kind of amazing to me how much programming languages end up being beholden to
+persistance mechanisms, and relational databases in particular. It seems like robust persistance (not
+serialization) would become a major topic during language design. But I understand why language-specific
+persistance mechanisms are a poor solution.&lt;/p&gt;
+
+&lt;h3&gt;Streaming&lt;/h3&gt;
+
+&lt;p&gt;It&amp;#8217;s always a good idea to write streaming code whenever you have a function that loads a lot of data.
+In the MRI at least, memory is never released back to the operating system once it has been allocated
+to the Ruby process. This is why people write monitoring packages that restart their Ruby servers if
+they grow above a certain threshold.&lt;/p&gt;
+
+&lt;p&gt;In Haskell, everything is lazy by default, waiting until some other code asks for its return value
+before it does any work. Monad code gets executed in order (at least IO code does), but the standard
+IO operations stream automatically, making fast, memory-conscous IO code a piece of cake.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;haskell&#8217;&gt;import Data.Char
+main = interact $ map toUpper&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;This program reads standard in, and writes it out in all upper-case. Its memory usage is constant,
+no matter how big the input is.&lt;/p&gt;
+
+&lt;h3&gt;Point-free Style&lt;/h3&gt;
+
+&lt;p&gt;Point-free style describes function composition where the arguments are passed through without having
+to be declared. It is an example of DRY at the syntactical level. You do this in Ruby when you use
+&lt;code&gt;Symbol#to_proc&lt;/code&gt; instead of a block.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;ruby&#8217;&gt;list.map(&amp;amp;:strip)&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;Rather than&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;ruby&#8217;&gt;list.map {|s| s.strip }&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;However, you can&amp;#8217;t use &lt;code&gt;Symbol#to_proc&lt;/code&gt; when you need to do more than send a single method. I have seen
+people hack around this limitation in Ruby, but it isn&amp;#8217;t very well looked-on, and some people even denigrate
+&lt;code&gt;Symbol#to_proc&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;In Haskell, point-free style is well-loved and well-supported. Consider the following.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;haskell&#8217;&gt;withA :: String -&amp;gt; String
+withA s = unlines (filter (elem &#8216;a&#8217;) (lines s))&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;This creates a function &lt;code&gt;withA&lt;/code&gt; which takes a string and returns only the lines that contain the character &lt;code&gt;&#8217;a&#8217;&lt;/code&gt;.
+But this function is essentially a pipeline where the data passes through each function from right to left. (In
+an object-oriented language, it would probably read from left to right.) You can remove the parameter (and some of
+the parentheses, by rewriting the function in point-free style.&lt;/p&gt;
+
+&lt;div class=&quot;code_window&quot;&gt;
+&lt;div&gt;
+  &lt;pre&gt;
+    &lt;code class=&#8217;haskell&#8217;&gt;withA :: String -&amp;gt; String
+withA = unlines . filter (elem &#8216;a&#8217;) . lines&lt;/code&gt;
+  &lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;/div&gt;
+
+
+&lt;p&gt;Once you understand how the function composition syntax works, this is way easier to read and write than the version
+with all the parentheses. To be honest, I consider this better, but still not as intuitive as an object-oriented version
+which reads in the order the steps are performed. The cool thing is that we&amp;#8217;ve eliminated the variable. Note that it&amp;#8217;s
+still clear that the function takes a string from the type declaration.&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>Components</title>
+    <link href="http://austintaylor.github.com/blog/2010/04/08/components/"/>
+    <updated>2010-04-08T00:00:00-04:00</updated>
+    <id>http://austintaylor.github.com/blog/2010/04/08/components</id>
+    <content type="html">&lt;p&gt;There was a time—oh, how long ago it seems—when the Rails framework was not yet
+1.0 and no one we personally knew had used it for production software. In those
+days everyone I knew was doing Java, and could only dream about a web
+development landscape where languages like Ruby and Python were acceptable
+choices. It was under these circumstances that &lt;a href=&quot;http://thewilliams.ws&quot;&gt;Adam Williams&lt;/a&gt; began to create a
+Java web development framework called Sails.&lt;/p&gt;
+
+&lt;p&gt;It was ostensibly a port of Rails. If you compared it today to a modern Rails
+project, you probably wouldn’t notice a lot of similarities. It really was like
+Rails at the time. A lot has changed since 1.0. You couldn’t draw your own
+routes, but no one we knew did that very much at the time. It had a custom
+template language, which was fairly common in Java at the time. You didn’t want
+to simply embed Java code in your HTML, because you hated Java anyway. And no
+one would let you build something like HAML. That would be too obscure, too far
+from the browser. Or something.&lt;/p&gt;
+
+&lt;p&gt;(Am I the only one who feels like HAML actually gets me closer to the browser,
+because it emphasizes the hierarchical nature of the DOM?)&lt;/p&gt;
+
+&lt;p&gt;I wrote the template language and called it Viento. I wrote it because I wanted
+to learn how parsers worked. I still think of it as one of the best things I’ve
+ever written. It was both a technical challenge and a design challenge, and I
+was pleased with the result from both perspectives. Does it matter that it was
+only used on two projects?&lt;/p&gt;
+
+&lt;h3&gt;Widgets&lt;/h3&gt;
+
+&lt;p&gt;Reusable components on the web are a pipe dream, I’ve been told. I do not know
+what kind of components are envisioned when someone concludes that they are not
+worth pursuing. In my experience, the things that you want to reuse are custom
+widgets. I’ve written quite a few custom widgets in my time. Hierarchical
+autocompletes. An ajax-paginated, sortable data table with resizeable columns.
+Reorderable tables. A full-page rich text editor. A code editor with live
+syntax highlighting. Sliders and custom dropdowns.&lt;/p&gt;
+
+&lt;p&gt;Each of these was built with a class, or a handful of classes in Javascript.
+They are supported by a handful of CSS and image assets. Ideally, they are
+integrated into the web framework in such a way that you can add them to a page
+and configure them with a single line. Some of them are supported by server
+code to handle ajax callbacks.&lt;/p&gt;
+
+&lt;p&gt;In Rails, if you do your job correctly, you will end up with:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;A single Javascript file, which is more or less generic, stored with the other JS files.&lt;/li&gt;
+&lt;li&gt;A single generic Sass file, stored with the other Sass.&lt;/li&gt;
+&lt;li&gt;A directory of images, if needed, stored with the other images.&lt;/li&gt;
+&lt;li&gt;A helper containing generators that can be included in the application helper.&lt;/li&gt;
+&lt;li&gt;A controller to handle callbacks, if needed.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;Even if we leave out the problem of sharing this component with another
+project, this is a very dissatisfying arrangement. None of the files are close
+to one another on the file system. If you are careful, you will at least get
+all the assets named consistently. In Sails, I created a simple component
+architecture that kept these things organized.&lt;/p&gt;
+
+&lt;p&gt;But the real value of components isn’t where the files are in the hierarchy.
+That’s really only the beginning. There were a number of other features of
+components in Sails that I miss to this day. I’ve never used anything else that
+was as effective for writing Javascript widgets in the context of a web
+application.&lt;/p&gt;
+
+&lt;h3&gt;HTML Generation&lt;/h3&gt;
+
+&lt;p&gt;One of the stickier problems you face when you are deciding how to factor your
+widget code is where to generate the HTML. It will probably be easier for you
+to write it using your customary template language, but that will make it
+harder for you to wire it up to your Javascript, and you will have less
+flexibility in how you use your component.&lt;/p&gt;
+
+&lt;p&gt;In Sails, I decided to go the template route. The interesting thing is the way
+we solved the wiring problem. Normally, it would be a pain to use IDs to
+identify your elements, because you would have to come up with some way to
+ensure that they are unique on the page where the widget is going to be used.
+If you opt to not use IDs, you’ll have to come up with CSS selectors to get at
+all the elements you’re interested in, usually in combination with adding
+classes that aren’t going to be styled.&lt;/p&gt;
+
+&lt;p&gt;Sails components solved this problem by providing a helper to the template for
+generating unique IDs. The instance of the component required an ID, which was
+used as a namespace for everything inside it. You could ID your elements as if
+they were the only elements on the page, and the framework would take care of
+the rest. The other really nice thing about this was that the framework would
+keep track of the IDs that you used, and would generate Javascript code to
+assign those elements to appropriate instance variables on your Javascript
+object. This simplified component programming tremendously.&lt;/p&gt;
+
+&lt;p&gt;Unfortunately, Sails didn’t have a good answer for the portability problem.
+There wasn’t a good way to generate a component dynamically without rewriting
+all the element building in Javascript. These days, I typically have my
+Javascript generate most of the elements that I need to implement the
+component. This makes for long and tiresome widget code, but it’s the only
+practical thing to do. I have found another approach to this problem that I’m
+using in Rails in certain situations, which I will write about at another time.&lt;/p&gt;
+
+&lt;h3&gt;Callbacks&lt;/h3&gt;
+
+&lt;p&gt;Another thing thats really messy without a component framework is making calls
+back into the server that are component related. In Rails, you have to have a
+controller to handle those requests, and of course, it has to be routed. In
+Sails, this problem was solved in a really, really interesting way.&lt;/p&gt;
+
+&lt;p&gt;You always had a Java object that represented your component. A global helper
+was generated to instantiate the object, and it some number of chainable
+methods for further configuring the component, and a render method which
+controlled how the component would be output as HTML. The default
+implementation rendered the associated template, of course.&lt;/p&gt;
+
+&lt;p&gt;Now, what was wild about the component instance was that it could also be a
+controller, if you wanted it to. You could mark a method as an @Callback, using
+Java Annotations. This would cause a method to be generated in the Javascript
+object for calling this action. Nowhere did you have to think about what the
+URL was, or what parameters were acceptable. The method had the same signature
+as the method in Java, with the addition of optional Ajax parameters. The
+method knew how to take those parameters and formulate an appropriate URL.&lt;/p&gt;
+
+&lt;p&gt;Of course, because the component object wasn’t kept around for longer than a
+request, a new instance had to be created to act as the controller. This would
+normally mean that you would lose whatever state the component had when you
+first created it. However, there was a feature where you could mark instance
+variables on the component as persistent. Those variables would then be
+marshaled, added as query parameters to every callback, and then set again on
+the controller-component in time for execution of the callback. Sails had
+marshaling strategies for any kind of object that you were likely to need, so
+in practice it felt as though you were working on the same instance in both
+parts of the component lifecycle.&lt;/p&gt;
+
+&lt;h3&gt;Conclusion&lt;/h3&gt;
+
+&lt;p&gt;Sails components are not the only thing I miss from those days. As much as I
+enjoy Ruby over Java, there’s no denying that the things we created were
+genuinely useful. They helped us solve the problems we had at the time, and in
+some ways were more advanced than the techniques we are using today.&lt;/p&gt;
+
+&lt;p&gt;I don’t think it’s possible to recreate Sails components in Rails today. The
+best things about it depended on the way Sails did routing and marshaling.
+Rails does routing differently now, and it couldn’t do marshaling in the same
+way, because Ruby doesn’t have declared types. It’s an interesting thing how we
+turned strong typing around to our advantage in Sails, when it was just about
+our least favorite feature in Java.&lt;/p&gt;
+
+&lt;p&gt;I think it’s worth remembering how problems were solved in the past, even if we
+can’t solve them the same way today. But I still find myself in situations at
+times where I wish that I had something like Sails components in Rails.&lt;/p&gt;
+</content>
+  </entry>
+  
+  <entry>
+    <title>Layout</title>
+    <link href="http://austintaylor.github.com/blog/2010/02/04/layout/"/>
+    <updated>2010-02-04T00:00:00-05:00</updated>
+    <id>http://austintaylor.github.com/blog/2010/02/04/layout</id>
+    <content type="html">&lt;p&gt;I have been trying to learn everything I can about visual design. I am a
+programmer by trade, but I have a strong personal bent toward creating things
+that are pleasing to the eye. Over the past year and a half, I’ve tried to get
+as much experience as I can in this area, without neglecting my primary
+business, which is writing code.&lt;/p&gt;
+
+&lt;p&gt;A couple of months ago I had the opportunity to spend some time with &lt;a href=&quot;http://wiseheartdesign.com&quot;&gt;John Long&lt;/a&gt;
+working on a new home page design for &lt;a href=&quot;http://rolemodelsoftware.com&quot;&gt;RoleModel Software&lt;/a&gt;. John is a very
+talented guy, and I was eager to understand how he approaches his designs. This
+was the first opportunity I had to sit down with a real designer and observe
+how he works.&lt;/p&gt;
+
+&lt;p&gt;As I worked with John, there were two things that stood out to me about the way
+he approached the design. As a programmer, I find myself more comfortable to do
+work in code than anywhere else. The design projects I had done up to this
+point were all written from beginning to end in HTML, CSS, Javascript, and Ruby
+scripts to generate images. But John’s approach was very different. I’ve spent
+some time thinking about his approach, and I’ve drawn what I think are some
+interesting conclusions.&lt;/p&gt;
+
+&lt;p&gt;The first thing he did was to try to figure out what belonged on the page. I
+had expected him to proceed pretty quickly to creating a look, or a structure
+for the page, but instead, he kept agonizing over which elements did and didn’t
+belong on the page.&lt;/p&gt;
+
+&lt;p&gt;The next thing he did was to start up Fireworks and begin moving those elements
+around on a mostly blank canvas. I’ve always disliked laying anything out in an
+image editor because it seemed like CSS was more powerful, and also more
+realistic, but I began to understand that there was a very powerful advantage
+to beginning here.&lt;/p&gt;
+
+&lt;p&gt;These two observations have led me to a completely different understanding of
+the concept of layout than I had before. I came to this understanding without
+having any name or description to refer to it. Since that time, I’ve heard John
+refer to it as the “content-out” approach, which I think is a good way to
+describe it, but may bear some further explanation.&lt;/p&gt;
+
+&lt;h3&gt;Two Ways&lt;/h3&gt;
+
+&lt;p&gt;The difference between the two approaches can be seen in two different ways the
+word “layout” can be used. Before I learned the new approach, I might talk
+about “creating a layout”, by which I meant putting together a structure of
+sections and containers that would begin to express the overall look of a page,
+without the need for any real content. Now, I would use the word “layout” in a
+different sense. I would rather talk about “laying everything out”, than about
+a “layout” as a thing in itself. In a sense, the old way is the static noun
+form, and the new way is the active verb form.&lt;/p&gt;
+
+&lt;p&gt;When I used to create layouts, I would try to imagine what set of containers I
+would need—maybe a header, a sidebar, and a main section—and then I would start
+assigning various elements of my content to the various containers. Sometimes
+one container ended up being underused, and I would have to figure out “what to
+put there”, while another one would be filled to overflowing.&lt;/p&gt;
+
+&lt;p&gt;But the way John worked, he began by discovering what the content would be, and
+then by spreading it all out in Fireworks like so many puzzle pieces. He kept
+moving the different bits around until the arrangement started making sense.
+The design was made from content rather than containers.&lt;/p&gt;
+
+&lt;h3&gt;Space&lt;/h3&gt;
+
+&lt;p&gt;One of the really important things I’ve learned about visual design is to
+appreciate empty space. Space makes a design feel clean and crisp, like when
+you clean up your room. I’ve found it challenging to create designs that have
+this feeling of clean organization. Too often a page starts to feel cluttered,
+like a messy room, or too sparse, like an empty one.&lt;/p&gt;
+
+&lt;p&gt;I think that this new approach to layout will make it much less of a struggle
+to use empty space effectively. When you create a layout of containers, you
+have to draw all the containers first, chopping up all the space you have into
+little boxes. When you then fill those containers, you mostly consider the
+relationship of the content to the container. The opportunities for breathing
+room in the design become limited.&lt;/p&gt;
+
+&lt;p&gt;But when you lay everything you have out on the table and start arranging it,
+your design practically is space. You separate things with space first, and
+then with lines only if they are needed. The result is a design that feels
+cleaner, and simpler, but no less structured.&lt;/p&gt;
+
+&lt;h3&gt;Form&lt;/h3&gt;
+
+&lt;p&gt;Another thing about the content-out approach is that the focus is on the real
+relationships between various elements on the page. The different pieces of the
+design are arranged based on what their proximity and alignment ought to be,
+rather than what it can be, or has to be, because of the layout.&lt;/p&gt;
+
+&lt;p&gt;The benefit of this is that form of the layout corresponds to the form of the
+content. In other words, the layout will feel natural and logical, rather than
+forced. In a sense, this is the way that form follows function in the
+discipline of web design.&lt;/p&gt;
+
+&lt;h3&gt;Redesign&lt;/h3&gt;
+
+&lt;p&gt;As I was contemplating these ideas, I happened to think about my experience
+redesigning the application pages in Courtyard. I consider that project to be
+the best design work I’ve done so far, both in terms of the end result, and
+also in terms of how effective my methods seemed to be while I was doing it. In
+retrospect, I seem to have used the content-out approach on that project
+without realizing it.&lt;/p&gt;
+
+&lt;p&gt;I had already had to figure out what elements belonged on each page when I did
+the first design. When I decided to redo the design, all the content was
+already in place, so the only way to proceed was to take what was there and
+start rearranging it. My hope is that I will be able to apply the content-out
+approach on future projects so that I can be as effective as I was on that
+project, without out having to do the whole thing twice.&lt;/p&gt;
+
+&lt;h3&gt;Conclusion&lt;/h3&gt;
+
+&lt;p&gt;It may be that all of this seems very basic and obvious to you. It does to me
+now, but it didn’t before. I’ve heard a number of people describe the design
+process in terms of “creating a layout”, which I consider to be the wrong
+approach. John also remarked that designers typically begin the other way
+around.&lt;/p&gt;
+
+&lt;p&gt;I think it is also important for the people who work with or employ designers
+to understand this principle. It will fall on them to provide the content that
+the designer needs before he can begin laying things out. To demand that a
+layout be created before the content has been discovered will prevent the
+designer from doing his best work.&lt;/p&gt;
+
+&lt;p&gt;I hope these ideas will help us to create more cohesive, beautiful designs, and
+that understanding them will help us to serve and collaborate with our
+customers more effectively.&lt;/p&gt;
+</content>
+  </entry>
+  
+</feed>
